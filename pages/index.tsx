@@ -1,4 +1,4 @@
-import { ConnectWallet, embeddedWallet, useAddress, useConnect, ChainId, smartWallet, useContract, useOwnedNFTs, Web3Button } from "@thirdweb-dev/react";
+import { ConnectWallet, embeddedWallet, useAddress, useConnect, ChainId, smartWallet, SmartWallet } from "@thirdweb-dev/react";
 import { EmbeddedWallet } from "@thirdweb-dev/wallets";
 import { Goerli } from "@thirdweb-dev/chains";
 import styles from "../styles/Home.module.css";
@@ -6,6 +6,7 @@ import { NextPage } from "next";
 import Image from "next/image";
 import { ACCOUNT_FACTORY_ADDRESS, NFT_CONTRACT_ADDRESS } from "../constants/addresses";
 import { useState } from "react";
+import { ethers, providers } from "ethers";
 
 const wallet = new EmbeddedWallet({
   clientId: `${process.env.NEXT_PUBLIC_TEMPLATE_CLIENT_ID}`,
@@ -27,7 +28,10 @@ const Home: NextPage = () => {
   const connect = useConnect();
   const [emailInput, setEmailInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [amount, setAmount] = useState("");
+  const [toAddress, setToAddress] = useState<string | undefined>(undefined);
   const [personalWalletAddress, setPersonalWalletAddress] = useState<string | undefined>(undefined);
+  const [smartWallet, setSmartWallet] = useState<SmartWallet | undefined>(undefined);
   const [smartWalletAddress, setSmartWalletAddress] = useState<string | undefined>(undefined);
 
   const handleLogin = async () => {
@@ -49,6 +53,7 @@ const Home: NextPage = () => {
         personalWallet: wallet,
         chainId: ChainId.Goerli,
       });
+      setSmartWallet(smartWallet);
       console.log("smartWallet", smartWallet);
       const smartWalletAddress = await smartWallet.getAddress();
       setSmartWalletAddress(smartWalletAddress);
@@ -61,68 +66,85 @@ const Home: NextPage = () => {
     }
   };
 
-  const { contract } = useContract(NFT_CONTRACT_ADDRESS);
-  const { data: personalOwnedNFTs, isLoading: isPersonalOwnedNFTsLoading } = useOwnedNFTs(contract, personalWalletAddress);
-  const { data: smartOwnedNFTs, isLoading: isSmartOwnedNFTsLoading } = useOwnedNFTs(contract, smartWalletAddress);
-
   if (isLoading) {
     return (
       <div className={styles.centeredContainer}>
-          <Image src="/images/loading.gif" alt="loading" width={200} height={200} className="loading"/>
+        <Image src="/images/loading.gif" alt="loading" width={200} height={200} className="loading" />
       </div>
     )
   }
+
+  const transferFunds = async () => {
+    try {
+      if (Number(amount) <= 0) {
+        throw new Error('Amount must be greater than zero !')
+      }
+
+      setIsLoading(true);
+      if (smartWallet) {
+        await smartWallet.deployIfNeeded();
+        const tx = await smartWallet.sendRaw({
+          to: `${toAddress}`,
+          chainId: ChainId.Goerli,
+          gasLimit: 3000000,
+          value: ethers.utils.parseEther(`${amount}`)
+        });
+        const receipt = await tx.wait();
+        console.log(receipt, "transaction receipt");
+      } else {
+        throw new Error('Please connect smart wallet !')
+      }
+      setIsLoading(false);
+    } catch (error: Error | any) {
+      console.log(error, "error");
+      setIsLoading(false);
+      alert(error?.message)
+    }
+  }
+
   return (
     <main className={styles.main}>
       <div className={styles.container}>
         {
-          address ? <div className={styles.centeredContainer}>
-            <div className={styles.centeredCard}>
-              <ConnectWallet auth={{
-                onLogout: () => {
-                  window.location.reload()
-                }
-              }} />
-              <h1>Logged in!</h1>
-              <p>Personal Wallet: {personalWalletAddress}</p>
-              <Web3Button
-                contractAddress={NFT_CONTRACT_ADDRESS}
-                action={(contract) => contract.erc1155.claimTo(personalWalletAddress!, 0, 1)}
-              >Claim NFT</Web3Button>
-              <div style={{ width: "100%", margin: "0 auto", textAlign: "center" }}>
-                {!isPersonalOwnedNFTsLoading && (
-                  personalOwnedNFTs && personalOwnedNFTs.length > 0 ? (
-                    personalOwnedNFTs.map((nft) => (
-                      <p key={nft.metadata.id}>QTY: {nft.quantityOwned}</p>
-                    ))
-                  ) : (
-                    <p>No NFTs owned.</p>
-                  )
-                )}
-              </div>
-              <p>Smart Wallet: {smartWalletAddress}</p>
-              <Web3Button
-                contractAddress={NFT_CONTRACT_ADDRESS}
-                action={(contract) => contract.erc1155.claim(0, 1)}
-              >Claim NFT</Web3Button>
-              <div style={{ width: "100%", margin: "0 auto", textAlign: "center" }}>
-                {!isSmartOwnedNFTsLoading && (
-                  smartOwnedNFTs && smartOwnedNFTs.length > 0 ? (
-                    smartOwnedNFTs.map((nft) => (
-                      <p key={nft.metadata.id}>QTY: {nft.quantityOwned}</p>
-                    ))
-                  ) : (
-                    <p>No NFTs owned.</p>
-                  )
-                )}
+          address ?
+            <div className={styles.centeredContainer}>
+              <div className={styles.centeredCard}>
+                <ConnectWallet auth={{
+                  onLogout: () => {
+                    window.location.reload()
+                  }
+                }} dropdownPosition={{
+                  side: "bottom",
+                  align: "center"
+                }} />
+                <form onSubmit={(e) => {
+                  e.preventDefault();
+                  transferFunds()
+                }}>
+                  <h2 style={{ textAlign: "center" }}>TRANSFER FUNDS</h2>
+                  <label>Wallet Address :</label>
+                  <input value={toAddress} type="text" placeholder="Enter Wallet Address" minLength={20} onChange={(e) => setToAddress(e.target.value)} required />
+                  <label>Amount in ETH :</label>
+                  <input value={amount} placeholder="Enter Amount in ETH" type="text" onChange={(e) => {
+                    if (!isNaN(Number(e.target.value))) {
+                      setAmount(e.target.value)
+                    }
+                    else if (!isNaN(Number(e.target.value)) && e.target.value.endsWith(".")) {
+                      setAmount(e.target.value)
+                    }
+                    else {
+                      setAmount("")
+                    }
+                  }} required />
+                  <button type="submit">Transfer</button>
+                </form>
               </div>
             </div>
-          </div>
             :
             <div className={styles.centeredContainer}>
               <div className={styles.centeredCard}>
-                <h1>Login</h1>
-                <p>Enter your email to login.</p>
+                <h1>Login With Email !</h1>
+                <p>Enter valid email to login.</p>
                 <input
                   type="email"
                   placeholder="Enter your email"
