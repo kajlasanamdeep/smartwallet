@@ -5,7 +5,7 @@ import styles from "../styles/Home.module.css";
 import { NextPage } from "next";
 import Image from "next/image";
 import { ACCOUNT_FACTORY_ADDRESS, NFT_CONTRACT_ADDRESS } from "../constants/addresses";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ethers, providers } from "ethers";
 import OtpInput from 'react-otp-input';
 const wallet = new EmbeddedWallet({
@@ -30,7 +30,7 @@ const Home: NextPage = () => {
   const [otpInput, setOtpInput] = useState("");
   const [emailInput, setEmailInput] = useState("");
   const [verifying, setVerifying] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [toAddress, setToAddress] = useState<string | undefined>(undefined);
   const [smartWallet, setSmartWallet] = useState<SmartWallet | undefined>(undefined);
 
@@ -52,6 +52,30 @@ const Home: NextPage = () => {
     }
   };
 
+  const connectSmartWallet = async (authResult: any) => {
+    console.log("Authenticated with", authResult);
+    const personalWalletAddress = await wallet.connect({ authResult });
+    console.log("personalWalletAddress", personalWalletAddress);
+    const smartWallet = await connect(smartWalletConfig, {
+      personalWallet: wallet,
+      chainId: ChainId.Goerli,
+    });
+    setSmartWallet(smartWallet);
+    console.log("smartWallet", smartWallet);
+    const smartWalletAddress = await smartWallet.getAddress();
+    console.log("smartWalletAddress", smartWalletAddress);
+  }
+
+  useEffect(() => {
+    let authResult = localStorage.getItem('authResult');
+    if (authResult) {
+      connectSmartWallet(JSON.parse(authResult)).catch(() => { }).finally(() => setIsLoading(false))
+    } else {
+      setIsLoading(false)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const handleLogin = async () => {
     try {
       setIsLoading(true);
@@ -60,17 +84,8 @@ const Home: NextPage = () => {
         verificationCode: otpInput,
         email: emailInput
       });
-      console.log("Authenticated with", authResult.user);
-      const personalWalletAddress = await wallet.connect({ authResult });
-      console.log("personalWalletAddress", personalWalletAddress);
-      const smartWallet = await connect(smartWalletConfig, {
-        personalWallet: wallet,
-        chainId: ChainId.Goerli,
-      });
-      setSmartWallet(smartWallet);
-      console.log("smartWallet", smartWallet);
-      const smartWalletAddress = await smartWallet.getAddress();
-      console.log("smartWalletAddress", smartWalletAddress);
+      localStorage.setItem('authResult', JSON.stringify(authResult));
+      await connectSmartWallet(authResult);
       setVerifying(false);
       setIsLoading(false);
       setEmailInput("");
