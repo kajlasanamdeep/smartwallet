@@ -2,7 +2,7 @@ import type { AppProps } from "next/app";
 import { ThirdwebProvider, embeddedWallet, metamaskWallet, smartWallet } from "@thirdweb-dev/react";
 import { Goerli } from "@thirdweb-dev/chains";
 import "../styles/globals.css";
-import { ACCOUNT_FACTORY_ADDRESS } from "../constants/addresses";
+import { ACCOUNT_FACTORY_ADDRESS, NEXT_PUBLIC_TEMPLATE_CLIENT_ID } from "../constants/addresses";
 
 // This is the chain your dApp will work on.
 // Change this to the chain your app is built for.
@@ -16,7 +16,7 @@ function MyApp({ Component, pageProps }: AppProps) {
 
   return (
     <ThirdwebProvider
-      clientId={process.env.NEXT_PUBLIC_TEMPLATE_CLIENT_ID}
+      clientId={NEXT_PUBLIC_TEMPLATE_CLIENT_ID}
       activeChain={Goerli}
       autoConnect={false}
     >

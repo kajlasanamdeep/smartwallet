@@ -15,7 +15,7 @@ const wallet = new EmbeddedWallet({
 
 const embeddedWalletConfig = embeddedWallet({
   auth: {
-    options: ["email"],
+    options: ["email","google"],
   },
 });
 const smartWalletConfig = smartWallet(embeddedWalletConfig, {
@@ -53,10 +53,8 @@ const Home: NextPage = () => {
   };
 
   const connectSmartWallet = async (authResult: any) => {
-    console.log("Authenticated with", authResult);
-    const personalWalletAddress = await wallet.connect({ authResult });
-    console.log("personalWalletAddress", personalWalletAddress);
-    const smartWallet = await connect(smartWalletConfig, {
+    // console.log("Authenticated with", authResult);
+     const smartWallet = await connect(smartWalletConfig, {
       personalWallet: wallet,
       chainId: ChainId.Goerli,
     });
