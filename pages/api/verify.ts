@@ -13,7 +13,7 @@ export default function handler(
 ) {
   const { payload } = req.body;
   if (!payload) return res.status(401).send({ message: "Invalid credentials" });
-  console.log(payload, "payload");
+  console.log(payload, "payload", typeof payload, payload?.userId);
   if (payload.userId !== 1) {
     return res.status(401).send({ message: "Invalid credentials" });
   }
